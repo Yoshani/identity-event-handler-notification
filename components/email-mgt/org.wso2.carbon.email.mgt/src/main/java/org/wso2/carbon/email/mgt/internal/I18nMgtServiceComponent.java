@@ -40,6 +40,7 @@ import org.wso2.carbon.identity.governance.service.notification.NotificationChan
 import org.wso2.carbon.identity.governance.service.notification.NotificationTemplateManager;
 import org.wso2.carbon.identity.organization.management.application.OrgApplicationManager;
 import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
+import org.wso2.carbon.light.registry.mgt.service.LightRegistryMgtService;
 import org.wso2.carbon.registry.core.service.RegistryService;
 import org.wso2.carbon.stratos.common.listeners.TenantMgtListener;
 import org.wso2.carbon.user.core.service.RealmService;
@@ -373,11 +374,11 @@ public class I18nMgtServiceComponent {
 
     @Reference(
              name = "RegistryResourceMgtService", 
-             service = org.wso2.carbon.identity.core.persistence.registry.RegistryResourceMgtService.class, 
+             service = org.wso2.carbon.light.registry.mgt.service.LightRegistryMgtService.class,
              cardinality = ReferenceCardinality.MANDATORY, 
              policy = ReferencePolicy.DYNAMIC, 
              unbind = "unsetRegistryResourceMgtService")
-    protected void setRegistryResourceMgtService(RegistryResourceMgtService registryResourceMgtService) {
+    protected void setRegistryResourceMgtService(LightRegistryMgtService registryResourceMgtService) {
         if (log.isDebugEnabled()) {
             log.debug("Setting Registry Resource Mgt Service.");
         }
@@ -398,7 +399,7 @@ public class I18nMgtServiceComponent {
         dataHolder.setRealmService(null);
     }
 
-    protected void unsetRegistryResourceMgtService(RegistryResourceMgtService registryResourceMgtService) {
+    protected void unsetRegistryResourceMgtService(LightRegistryMgtService registryResourceMgtService) {
         if (log.isDebugEnabled()) {
             log.debug("UnSetting Registry Resource Mgt Service.");
         }

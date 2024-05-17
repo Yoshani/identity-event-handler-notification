@@ -29,17 +29,18 @@ import org.wso2.carbon.email.mgt.internal.I18nMgtDataHolder;
 import org.wso2.carbon.email.mgt.model.EmailTemplate;
 import org.wso2.carbon.email.mgt.util.I18nEmailUtil;
 import org.wso2.carbon.identity.base.IdentityRuntimeException;
-import org.wso2.carbon.identity.core.persistence.registry.RegistryResourceMgtService;
 import org.wso2.carbon.identity.governance.IdentityMgtConstants;
 import org.wso2.carbon.identity.governance.exceptions.notiification.NotificationTemplateManagerException;
 import org.wso2.carbon.identity.governance.exceptions.notiification.NotificationTemplateManagerServerException;
 import org.wso2.carbon.identity.governance.model.NotificationTemplate;
 import org.wso2.carbon.identity.governance.service.notification.NotificationChannels;
-import org.wso2.carbon.registry.core.Collection;
+import org.wso2.carbon.light.registry.mgt.LightRegistryException;
+import org.wso2.carbon.light.registry.mgt.constants.LightRegistryConstants;
+import org.wso2.carbon.light.registry.mgt.model.Collection;
+import org.wso2.carbon.light.registry.mgt.model.Resource;
+import org.wso2.carbon.light.registry.mgt.model.ResourceImpl;
+import org.wso2.carbon.light.registry.mgt.service.LightRegistryMgtService;
 import org.wso2.carbon.registry.core.RegistryConstants;
-import org.wso2.carbon.registry.core.Resource;
-import org.wso2.carbon.registry.core.ResourceImpl;
-import org.wso2.carbon.registry.core.exceptions.RegistryException;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -61,7 +62,9 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
     private static final Log log = LogFactory.getLog(RegistryBasedTemplateManager.class);
 
     private I18nMgtDataHolder dataHolder = I18nMgtDataHolder.getInstance();
-    private RegistryResourceMgtService resourceMgtService = dataHolder.getRegistryResourceMgtService();
+    private LightRegistryMgtService resourceMgtService = dataHolder.getRegistryResourceMgtService();
+    private static final String EN_US = "en_us";
+    private static final String BLACKLIST_REGEX = ".*[/\\\\<>`\"].*";
 
     @Override
     public void addNotificationTemplateType(String displayName, String notificationChannel, String tenantDomain)
@@ -73,7 +76,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         try {
             // Persist the template type to registry ie. create a directory.
             Collection collection = I18nEmailUtil.createTemplateType(normalizedDisplayName, displayName);
-            resourceMgtService.putIdentityResource(collection, path, tenantDomain);
+            resourceMgtService.putResource(collection, path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             throw new NotificationTemplateManagerServerException("Error while adding notification template type.", e);
         }
@@ -88,7 +91,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         String path = buildTemplateRootDirectoryPath(normalizedTemplateName, notificationChannel);
 
         try {
-            return resourceMgtService.isResourceExists(path, tenantDomain);
+            return resourceMgtService.resourceExists(path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             String error = String.format("Error when retrieving email templates of %s tenant.", tenantDomain);
             throw new NotificationTemplateManagerServerException(error, e);
@@ -102,21 +105,21 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         try {
             List<String> templateTypeList = new ArrayList<>();
             String path = buildTemplateRootDirectoryPath(notificationChannel);
-            Collection collection = (Collection) resourceMgtService.getIdentityResource(path, tenantDomain);
+            Collection collection = (Collection) resourceMgtService.getResource(path, tenantDomain);
 
             if (collection == null) {
                 return templateTypeList;
             }
 
             for (String templatePath : collection.getChildren()) {
-                Resource templateTypeResource = resourceMgtService.getIdentityResource(templatePath, tenantDomain);
+                Resource templateTypeResource = resourceMgtService.getResource(templatePath, tenantDomain);
                 if (templateTypeResource != null) {
                     String emailTemplateType = templateTypeResource.getProperty(EMAIL_TEMPLATE_TYPE_DISPLAY_NAME);
                     templateTypeList.add(emailTemplateType);
                 }
             }
             return templateTypeList;
-        } catch (IdentityRuntimeException | RegistryException e) {
+        } catch (IdentityRuntimeException | LightRegistryException e) {
             throw new NotificationTemplateManagerServerException("Error while listing notification template types.", e);
         }
     }
@@ -129,7 +132,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         String path = buildTemplateRootDirectoryPath(templateType, notificationChannel);
 
         try {
-            resourceMgtService.deleteIdentityResource(path, tenantDomain);
+            resourceMgtService.deleteResource(path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             throw new NotificationTemplateManagerServerException("Error while deleting notification template type.", e);
         }
@@ -149,7 +152,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         String path = buildTemplateRootDirectoryPath(type, notificationChannel, applicationUuid);
         try {
             // Check whether a template type root directory exists.
-            if (!resourceMgtService.isResourceExists(path, tenantDomain)) {
+            if (!resourceMgtService.resourceExists(path, tenantDomain)) {
                 // Add new template type with relevant properties.
                 addNotificationTemplateType(displayName, notificationChannel, tenantDomain);
                 if (log.isDebugEnabled()) {
@@ -157,7 +160,8 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
                     log.debug(String.format(msg, displayName, tenantDomain));
                 }
             }
-            resourceMgtService.putIdentityResource(templateResource, path, tenantDomain, locale);
+            path = getRegistryPath(path, locale);
+            resourceMgtService.putResource(templateResource, path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             throw new NotificationTemplateManagerServerException("Error while adding notification template.", e);
         }
@@ -174,7 +178,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         path = addLocaleToTemplateTypeResourcePath(path, locale);
 
         try {
-            return resourceMgtService.isResourceExists(path, tenantDomain);
+            return resourceMgtService.resourceExists(path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             String error =
                     String.format("Error while checking the existence of the notification template %s in %s tenant.",
@@ -195,7 +199,8 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
 
         // Get registry resource.
         try {
-            Resource registryResource = resourceMgtService.getIdentityResource(path, tenantDomain, locale);
+            path = getRegistryPath(path, locale);
+            Resource registryResource = resourceMgtService.getResource(path, tenantDomain);
             if (registryResource != null) {
                 notificationTemplate = getNotificationTemplate(registryResource, notificationChannel);
             }
@@ -221,7 +226,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
 
         try {
             return getAllTemplatesOfTemplateTypeFromRegistry(path, tenantDomain);
-        } catch (RegistryException e) {
+        } catch (LightRegistryException e) {
             String error = "Error when retrieving '%s' template type from %s tenant registry.";
             throw new NotificationTemplateManagerServerException(
                     String.format(error, templateDisplayName, tenantDomain), e);
@@ -236,7 +241,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
 
         try {
             String path = buildTemplateRootDirectoryPath(notificationChannel);
-            Collection baseDirectory = (Collection) resourceMgtService.getIdentityResource(path, tenantDomain);
+            Collection baseDirectory = (Collection) resourceMgtService.getResource(path, tenantDomain);
 
             if (baseDirectory != null) {
                 for (String templateTypeDirectory : baseDirectory.getChildren()) {
@@ -244,7 +249,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
                             getAllTemplatesOfTemplateTypeFromRegistry(templateTypeDirectory, tenantDomain));
                 }
             }
-        } catch (RegistryException | IdentityRuntimeException e) {
+        } catch (LightRegistryException | IdentityRuntimeException e) {
             throw new NotificationTemplateManagerServerException("Error while listing all notification templates.", e);
         }
 
@@ -259,7 +264,8 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         String templateType = I18nEmailUtil.getNormalizedName(displayName);
         String path = buildTemplateRootDirectoryPath(templateType, notificationChannel, applicationUuid);
         try {
-            resourceMgtService.deleteIdentityResource(path, tenantDomain, locale);
+            path = getRegistryPath(path, locale);
+            resourceMgtService.deleteResource(path, tenantDomain);
         } catch (IdentityRuntimeException e) {
             String msg = String.format("Error deleting %s:%s template from %s tenant registry.", displayName,
                     locale, tenantDomain);
@@ -277,22 +283,22 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         try {
             if (StringUtils.isBlank(applicationUuid)) {
                 // Delete org templates
-                Collection templates = (Collection) resourceMgtService.getIdentityResource(path, tenantDomain);
+                Collection templates = (Collection) resourceMgtService.getResource(path, tenantDomain);
                 for (String subPath : templates.getChildren()) {
                     // Exclude the app templates.
                     if (!subPath.contains(APP_TEMPLATE_PATH)) {
-                        resourceMgtService.deleteIdentityResource(subPath, tenantDomain);
+                        resourceMgtService.deleteResource(subPath, tenantDomain);
                     }
                 }
             } else {
                 // Delete app templates
-                if (!resourceMgtService.isResourceExists(path, tenantDomain)) {
+                if (!resourceMgtService.resourceExists(path, tenantDomain)) {
                     // No templates found for the given application UUID.
                     return;
                 }
-                resourceMgtService.deleteIdentityResource(path, tenantDomain);
+                resourceMgtService.deleteResource(path, tenantDomain);
             }
-        } catch (IdentityRuntimeException | RegistryException e) {
+        } catch (IdentityRuntimeException | LightRegistryException e) {
             throw new NotificationTemplateManagerServerException("Error while deleting notification templates.", e);
         }
     }
@@ -394,7 +400,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
                 throw new NotificationTemplateManagerServerException(IdentityMgtConstants.ErrorMessages.
                         ERROR_CODE_NO_CONTENT_IN_TEMPLATE.getCode(), error);
             }
-        } catch (RegistryException exception) {
+        } catch (LightRegistryException exception) {
             String error = IdentityMgtConstants.ErrorMessages.
                     ERROR_CODE_ERROR_RETRIEVING_TEMPLATE_OBJECT_FROM_REGISTRY.getMessage();
             throw new NotificationTemplateManagerServerException(IdentityMgtConstants.ErrorMessages.
@@ -435,7 +441,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
         try {
             byte[] contentByteArray = content.getBytes(StandardCharsets.UTF_8);
             templateResource.setContent(contentByteArray);
-        } catch (RegistryException e) {
+        } catch (LightRegistryException e) {
             String code =
                     I18nEmailUtil.prependOperationScenarioToErrorCode(
                             I18nMgtConstants.ErrorMessages.ERROR_CODE_ERROR_CREATING_REGISTRY_RESOURCE.getCode(),
@@ -470,14 +476,14 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
      * @param templateTypeRegistryPath Registry path of the template type.
      * @param tenantDomain             Tenant domain.
      * @return List of extracted EmailTemplate objects.
-     * @throws RegistryException if any error occurred.
+     * @throws LightRegistryException if any error occurred.
      */
     private List<NotificationTemplate> getAllTemplatesOfTemplateTypeFromRegistry(String templateTypeRegistryPath,
                                                                                  String tenantDomain)
-            throws NotificationTemplateManagerServerException, RegistryException {
+            throws NotificationTemplateManagerServerException, LightRegistryException {
 
         List<NotificationTemplate> templateList = new ArrayList<>();
-        Collection templateType = (Collection) resourceMgtService.getIdentityResource(templateTypeRegistryPath,
+        Collection templateType = (Collection) resourceMgtService.getResource(templateTypeRegistryPath,
                 tenantDomain);
 
         if (templateType == null) {
@@ -489,7 +495,7 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
             throw new NotificationTemplateManagerServerException(EMAIL_TEMPLATE_TYPE_NOT_FOUND, message);
         }
         for (String template : templateType.getChildren()) {
-            Resource templateResource = resourceMgtService.getIdentityResource(template, tenantDomain);
+            Resource templateResource = resourceMgtService.getResource(template, tenantDomain);
             // Exclude the app templates for organization template requests.
             if (templateResource != null && (templateTypeRegistryPath.contains(APP_TEMPLATE_PATH)
                     || !templateResource.getPath().contains(APP_TEMPLATE_PATH))) {
@@ -561,5 +567,28 @@ public class RegistryBasedTemplateManager implements TemplatePersistenceManager 
             return SMS_TEMPLATE_PATH;
         }
         return EMAIL_TEMPLATE_PATH;
+    }
+
+    private String getRegistryPath(String path, String locale) {
+        locale = validateLocale(locale);
+        path = path + LightRegistryConstants.PATH_SEPARATOR + locale;
+        return path;
+    }
+
+    /**
+     * Validate whether the provided locale string contains invalid characters. If and empty or null string is provided
+     * we consider the locale as the default locale en_US
+     *
+     * @param locale
+     * @return
+     * @throws IllegalArgumentException
+     */
+    private String validateLocale(String locale) {
+        String localeString = StringUtils.isBlank(locale) ? EN_US : locale.toLowerCase();
+
+        if (localeString.matches(BLACKLIST_REGEX)) {
+            throw new IllegalArgumentException("Locale contains invalid special characters : " + locale);
+        }
+        return localeString;
     }
 }

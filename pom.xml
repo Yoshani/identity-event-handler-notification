@@ -146,6 +146,11 @@
             </dependency>
             <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.light.registry.mgt</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
                 <artifactId>org.wso2.carbon.identity.application.authentication.framework</artifactId>
                 <version>${carbon.identity.framework.version}</version>
             </dependency>
@@ -449,7 +454,7 @@
         <org.wso2.carbon.database.utils.version.range>[2.1.0,2.2.0)</org.wso2.carbon.database.utils.version.range>
 
         <!--Carbon Identity Framework Version-->
-        <carbon.identity.framework.version>7.1.0</carbon.identity.framework.version>
+        <carbon.identity.framework.version>7.2.20-SNAPSHOT</carbon.identity.framework.version>
         <carbon.identity.framework.imp.pkg.version.range>[7.1.0, 8.0.0)</carbon.identity.framework.imp.pkg.version.range>
 
         <!-- Organization management Version -->

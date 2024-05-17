@@ -18,10 +18,10 @@
 
 package org.wso2.carbon.email.mgt.internal;
 
-import org.wso2.carbon.identity.core.persistence.registry.RegistryResourceMgtService;
 import org.wso2.carbon.identity.governance.model.NotificationTemplate;
 import org.wso2.carbon.identity.organization.management.application.OrgApplicationManager;
 import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
+import org.wso2.carbon.light.registry.mgt.service.LightRegistryMgtService;
 import org.wso2.carbon.registry.core.service.RegistryService;
 import org.wso2.carbon.user.core.service.RealmService;
 
@@ -31,7 +31,7 @@ import java.util.List;
 public class I18nMgtDataHolder{
     private RealmService realmService;
     private RegistryService registryService;
-    private RegistryResourceMgtService registryResourceMgtService;
+    private LightRegistryMgtService registryResourceMgtService;
     private OrganizationManager organizationManager;
     private OrgApplicationManager sharedAppManager;
     private List<NotificationTemplate> defaultEmailTemplates = new ArrayList<>();
@@ -68,7 +68,7 @@ public class I18nMgtDataHolder{
         this.registryService = registryService;
     }
 
-    public RegistryResourceMgtService getRegistryResourceMgtService() {
+    public LightRegistryMgtService getRegistryResourceMgtService() {
         if (registryResourceMgtService == null) {
             throw new RuntimeException("Registry Resource Mgt Service has not been set." +
                     "Component has not initialized properly.");
@@ -76,7 +76,7 @@ public class I18nMgtDataHolder{
         return registryResourceMgtService;
     }
 
-    public void setRegistryResourceMgtService(RegistryResourceMgtService registryResourceMgtService) {
+    public void setRegistryResourceMgtService(LightRegistryMgtService registryResourceMgtService) {
         this.registryResourceMgtService = registryResourceMgtService;
     }
 

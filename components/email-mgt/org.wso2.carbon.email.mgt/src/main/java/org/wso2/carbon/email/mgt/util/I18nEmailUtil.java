@@ -29,12 +29,12 @@ import org.wso2.carbon.email.mgt.internal.I18nMgtDataHolder;
 import org.wso2.carbon.email.mgt.model.EmailTemplate;
 import org.wso2.carbon.identity.governance.model.NotificationTemplate;
 import org.wso2.carbon.identity.governance.service.notification.NotificationChannels;
-import org.wso2.carbon.registry.core.Collection;
-import org.wso2.carbon.registry.core.CollectionImpl;
+import org.wso2.carbon.light.registry.mgt.LightRegistryException;
+import org.wso2.carbon.light.registry.mgt.model.CollectionImpl;
+import org.wso2.carbon.light.registry.mgt.model.Resource;
+import org.wso2.carbon.light.registry.mgt.model.Collection;
+import org.wso2.carbon.light.registry.mgt.model.ResourceImpl;
 import org.wso2.carbon.registry.core.RegistryConstants;
-import org.wso2.carbon.registry.core.Resource;
-import org.wso2.carbon.registry.core.ResourceImpl;
-import org.wso2.carbon.registry.core.exceptions.RegistryException;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
@@ -151,7 +151,7 @@ public class I18nEmailUtil {
         try {
             byte[] contentByteArray = content.getBytes("UTF-8");
             templateResource.setContent(contentByteArray);
-        } catch (RegistryException | UnsupportedEncodingException e) {
+        } catch (LightRegistryException | UnsupportedEncodingException e) {
             String error = "Error creating a registry resource from contents of %s email template type in %s locale.";
             throw new I18nEmailMgtServerException(String.format(error, templateDisplayName, locale), e);
         }
@@ -211,7 +211,7 @@ public class I18nEmailUtil {
                         templateDisplayName, locale);
                 log.error(error);
             }
-        } catch (RegistryException e) {
+        } catch (LightRegistryException e) {
             String error = "Error retrieving a template object from the registry resource";
             throw new I18nEmailMgtServerException(error, e);
         }
